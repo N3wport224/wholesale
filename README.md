@@ -23,14 +23,29 @@ buyers, and track them through closing.
 ```bash
 npm install
 cp .env.example .env
+# then edit .env and set APP_PASSWORD and SESSION_SECRET (see below)
 npx prisma migrate dev
-npm run db:seed   # optional: adds a sample buyer + deals in every stage
+npm run db:seed   # optional: adds sample buyers + deals in every stage
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Access
+
+The whole app sits behind a single shared password — there are no separate
+user accounts, matching a single-operator tool. Set two values in `.env`:
+
+- `APP_PASSWORD` — the password prompted at `/login`.
+- `SESSION_SECRET` — a random signing key for the session cookie. Generate
+  one with `openssl rand -hex 32`.
+
+If either is missing, every page redirects to a login form that can never
+succeed — the app fails closed rather than silently running open.
+
 ## Stack
 
 Next.js (App Router) + TypeScript + Tailwind CSS, with Prisma + SQLite
 (via the `@prisma/adapter-better-sqlite3` driver adapter) for persistence.
+Access is gated by `src/proxy.ts` (Next's replacement for `middleware.ts`
+in this version) checking a signed session cookie.
