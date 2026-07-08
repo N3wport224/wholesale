@@ -66,6 +66,102 @@ export function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
+export function inspectionDeadline(
+  contractDate: Date | null | undefined,
+  inspectionDays: number | null | undefined
+) {
+  if (!contractDate || !inspectionDays) return null;
+  const deadline = new Date(contractDate);
+  deadline.setDate(deadline.getDate() + inspectionDays);
+  return deadline;
+}
+
+export function daysUntil(date: Date | null | undefined, from: Date = new Date()) {
+  if (!date) return null;
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function inspectionStatusLabel(
+  contractDate: Date | null | undefined,
+  inspectionDays: number | null | undefined
+) {
+  const deadline = inspectionDeadline(contractDate, inspectionDays);
+  if (!deadline) return null;
+  const days = daysUntil(deadline);
+  if (days === null) return null;
+  if (days < 0) return { label: `Inspection ended ${Math.abs(days)}d ago`, urgent: true };
+  if (days === 0) return { label: "Inspection ends today", urgent: true };
+  if (days <= 3) return { label: `Inspection ends in ${days}d`, urgent: true };
+  return { label: `Inspection ends in ${days}d`, urgent: false };
+}
+
+const CSV_HEADERS = [
+  "Address",
+  "City",
+  "State",
+  "Zip",
+  "Source",
+  "Status",
+  "Purchase Price",
+  "Estimated Value",
+  "Spread",
+  "Rent Comp",
+  "Buyer",
+  "Assignment Fee",
+  "Contract Date",
+  "Closing Date",
+] as const;
+
+function csvEscape(value: string | number | null | undefined) {
+  let str = value === null || value === undefined ? "" : String(value);
+  // Neutralize formula injection (=, +, -, @) so spreadsheet apps don't execute cell contents.
+  if (/^[=+\-@]/.test(str)) str = `'${str}`;
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+export function dealsToCsv(
+  deals: Array<{
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    sourceSite: string;
+    status: string;
+    purchasePrice: number;
+    estimatedValue: number;
+    rentComp: number | null;
+    buyer?: { name: string } | null;
+    assignmentFee: number | null;
+    contractDate: Date | null;
+    closingDate: Date | null;
+  }>
+) {
+  const rows = deals.map((d) =>
+    [
+      d.address,
+      d.city,
+      d.state,
+      d.zip,
+      d.sourceSite,
+      STATUS_LABELS[d.status as DealStatus] ?? d.status,
+      d.purchasePrice,
+      d.estimatedValue,
+      spread(d.purchasePrice, d.estimatedValue),
+      d.rentComp ?? "",
+      d.buyer?.name ?? "",
+      d.assignmentFee ?? "",
+      d.contractDate ? d.contractDate.toISOString().slice(0, 10) : "",
+      d.closingDate ? d.closingDate.toISOString().slice(0, 10) : "",
+    ]
+      .map(csvEscape)
+      .join(",")
+  );
+  return [CSV_HEADERS.join(","), ...rows].join("\n");
+}
+
 export function assignableOfferClause(buyerName: string) {
   const name = buyerName.trim() || "[Your Name]";
   return `Buyer: ${name} and/or Assigns`;

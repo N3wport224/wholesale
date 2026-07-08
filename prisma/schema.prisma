@@ -32,6 +32,7 @@ model Deal {
   notes          String?
   buyerId        String?
   buyer          Buyer?    @relation(fields: [buyerId], references: [id])
+  activities     DealActivity[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
@@ -44,4 +45,16 @@ model Buyer {
   notes     String?
   createdAt DateTime @default(now())
   deals     Deal[]
+}
+
+// type values: CREATED, UPDATED, STATUS_CHANGE, CONTRACT, BUYER_ASSIGNED, CLOSED
+model DealActivity {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
 }

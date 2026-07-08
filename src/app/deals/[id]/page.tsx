@@ -1,22 +1,24 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
   STATUS_LABELS,
   DealStatus,
   formatCurrency,
+  inspectionStatusLabel,
   matchesCriteria,
   spread,
 } from "@/lib/deal-logic";
-import {
-  updateContractTerms,
-  closeDeal,
-  markDealDead,
-  deleteDeal,
-  updateDealNotes,
-} from "@/lib/actions";
+import { markDealDead, deleteDeal, updateDealNotes } from "@/lib/actions";
 import { ContractClauseCard } from "@/components/ContractClauseCard";
+import { ContractTermsForm } from "@/components/ContractTermsForm";
 import { MarketingBlurbCard } from "@/components/MarketingBlurbCard";
+import { ClosingForm } from "@/components/ClosingForm";
+import { ActivityTimeline } from "@/components/ActivityTimeline";
 import { SubmitButton } from "@/components/SubmitButton";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+
+export const dynamic = "force-dynamic";
 
 function toInputDate(d: Date | null) {
   if (!d) return "";
@@ -25,26 +27,52 @@ function toInputDate(d: Date | null) {
 
 export default async function DealDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ duplicate?: string }>;
 }) {
   const { id } = await params;
-  const deal = await prisma.deal.findUnique({ where: { id } });
+  const { duplicate } = await searchParams;
+  const deal = await prisma.deal.findUnique({
+    where: { id },
+    include: { activities: { orderBy: { createdAt: "desc" } } },
+  });
   if (!deal) notFound();
 
   const buyers = await prisma.buyer.findMany({ orderBy: { name: "asc" } });
   const isMatch = matchesCriteria(deal.purchasePrice, deal.estimatedValue);
   const gap = spread(deal.purchasePrice, deal.estimatedValue);
+  const inspection =
+    deal.status === "UNDER_CONTRACT" ? inspectionStatusLabel(deal.contractDate, deal.inspectionDays) : null;
 
   return (
     <div className="max-w-3xl space-y-8">
+      {duplicate === "1" && (
+        <div className="rounded-md border border-amber-800 bg-amber-500/10 p-3 text-sm text-amber-300">
+          Heads up — a deal at this address already exists in your pipeline. Saved anyway; check
+          you&apos;re not duplicating work.
+        </div>
+      )}
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{deal.address}</h1>
             {isMatch && (
               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
                 Match
+              </span>
+            )}
+            {inspection && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  inspection.urgent
+                    ? "bg-red-500/15 text-red-400"
+                    : "bg-blue-500/15 text-blue-400"
+                }`}
+              >
+                {inspection.label}
               </span>
             )}
           </div>
@@ -56,17 +84,28 @@ export default async function DealDetailPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href={`/deals/${deal.id}/edit`}
+            className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
+          >
+            Edit
+          </Link>
           {deal.status !== "DEAD" && deal.status !== "CLOSED" && (
             <form action={markDealDead.bind(null, deal.id)}>
-              <SubmitButton className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800">
+              <ConfirmSubmitButton
+                confirmMessage={`Mark ${deal.address} dead? You can revive it later by re-locking it under contract.`}
+                className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
+              >
                 Mark dead
-              </SubmitButton>
+              </ConfirmSubmitButton>
             </form>
           )}
           <form action={deleteDeal.bind(null, deal.id)}>
-            <SubmitButton className="rounded-md border border-red-900 px-3 py-1.5 text-xs text-red-400 hover:bg-red-950">
+            <ConfirmSubmitButton
+              confirmMessage={`Delete ${deal.address}? This can't be undone.`}
+            >
               Delete
-            </SubmitButton>
+            </ConfirmSubmitButton>
           </form>
         </div>
       </div>
@@ -83,49 +122,23 @@ export default async function DealDetailPage({
           Put an assignable-offer clause on your purchase agreement, then put down earnest money
           with an inspection period.
         </p>
-        <ContractClauseCard />
-        <form
-          action={updateContractTerms.bind(null, deal.id)}
-          className="grid grid-cols-1 gap-4 border-t border-neutral-800 pt-4 sm:grid-cols-3"
-        >
-          <div>
-            <label className="block text-sm font-medium text-neutral-300">
-              Earnest money ($500–$1,000)
-            </label>
-            <input
-              name="earnestMoney"
-              type="number"
-              min={0}
-              defaultValue={deal.earnestMoney ?? 500}
-              className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+        {deal.status === "CLOSED" ? (
+          <p className="text-sm text-neutral-300">
+            Locked under contract on {toInputDate(deal.contractDate) || "—"}
+            {deal.earnestMoney ? ` — ${formatCurrency(deal.earnestMoney)} earnest money` : ""}
+            {deal.inspectionDays ? `, ${deal.inspectionDays}-day inspection.` : "."}
+          </p>
+        ) : (
+          <>
+            <ContractClauseCard />
+            <ContractTermsForm
+              dealId={deal.id}
+              earnestMoney={deal.earnestMoney}
+              inspectionDays={deal.inspectionDays}
+              contractDate={toInputDate(deal.contractDate)}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-300">
-              Inspection period (days)
-            </label>
-            <input
-              name="inspectionDays"
-              type="number"
-              min={1}
-              max={60}
-              defaultValue={deal.inspectionDays ?? 21}
-              className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-300">Contract date</label>
-            <input
-              name="contractDate"
-              type="date"
-              defaultValue={toInputDate(deal.contractDate)}
-              className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div className="sm:col-span-3">
-            <SubmitButton>Save & move to Under Contract</SubmitButton>
-          </div>
-        </form>
+          </>
+        )}
       </Section>
 
       <Section title="Step 4 — Find a cash buyer">
@@ -133,19 +146,28 @@ export default async function DealDetailPage({
           Post the deal to investor Facebook groups, BiggerPockets Marketplace, or local
           Meetup.com networks, then record who you assigned it to.
         </p>
-        <MarketingBlurbCard
-          dealId={deal.id}
-          address={deal.address}
-          city={deal.city}
-          state={deal.state}
-          zip={deal.zip}
-          purchasePrice={deal.purchasePrice}
-          estimatedValue={deal.estimatedValue}
-          rentComp={deal.rentComp}
-          buyers={buyers}
-          currentBuyerId={deal.buyerId}
-          currentAssignmentFee={deal.assignmentFee}
-        />
+        {deal.status === "CLOSED" ? (
+          <p className="text-sm text-neutral-300">
+            {deal.buyerId
+              ? `Assigned to ${buyers.find((b) => b.id === deal.buyerId)?.name ?? "a buyer"} for ${formatCurrency(deal.assignmentFee)}.`
+              : "No buyer was recorded before this deal closed."}
+          </p>
+        ) : (
+          <MarketingBlurbCard
+            key={`${deal.buyerId ?? "none"}-${deal.assignmentFee ?? "0"}`}
+            dealId={deal.id}
+            address={deal.address}
+            city={deal.city}
+            state={deal.state}
+            zip={deal.zip}
+            purchasePrice={deal.purchasePrice}
+            estimatedValue={deal.estimatedValue}
+            rentComp={deal.rentComp}
+            buyers={buyers}
+            currentBuyerId={deal.buyerId}
+            currentAssignmentFee={deal.assignmentFee}
+          />
+        )}
       </Section>
 
       <Section title="Step 5 — Close and collect">
@@ -159,19 +181,12 @@ export default async function DealDetailPage({
             {formatCurrency(deal.assignmentFee)}.
           </p>
         ) : (
-          <form action={closeDeal.bind(null, deal.id)} className="flex flex-wrap items-end gap-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-300">Closing date</label>
-              <input
-                name="closingDate"
-                type="date"
-                defaultValue={toInputDate(deal.closingDate)}
-                className="mt-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
-              />
-            </div>
-            <SubmitButton>Mark closed</SubmitButton>
-          </form>
+          <ClosingForm dealId={deal.id} closingDate={toInputDate(deal.closingDate)} />
         )}
+      </Section>
+
+      <Section title="Activity">
+        <ActivityTimeline activities={deal.activities} />
       </Section>
 
       <Section title="Notes">

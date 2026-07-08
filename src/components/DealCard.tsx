@@ -1,14 +1,17 @@
 import Link from "next/link";
-import { formatCurrency, matchesCriteria, spread } from "@/lib/deal-logic";
+import { formatCurrency, inspectionStatusLabel, matchesCriteria, spread } from "@/lib/deal-logic";
 
 type DealCardProps = {
   id: string;
   address: string;
   city: string;
   state: string;
+  status: string;
   sourceSite: string;
   purchasePrice: number;
   estimatedValue: number;
+  contractDate: Date | null;
+  inspectionDays: number | null;
   buyerName?: string | null;
   assignmentFee?: number | null;
 };
@@ -16,6 +19,8 @@ type DealCardProps = {
 export function DealCard(deal: DealCardProps) {
   const isMatch = matchesCriteria(deal.purchasePrice, deal.estimatedValue);
   const gap = spread(deal.purchasePrice, deal.estimatedValue);
+  const inspection =
+    deal.status === "UNDER_CONTRACT" ? inspectionStatusLabel(deal.contractDate, deal.inspectionDays) : null;
 
   return (
     <Link
@@ -49,6 +54,11 @@ export function DealCard(deal: DealCardProps) {
       {deal.assignmentFee != null && (
         <p className="mt-0.5 text-[11px] text-neutral-500">
           Assignment fee: {formatCurrency(deal.assignmentFee)}
+        </p>
+      )}
+      {inspection && (
+        <p className={`mt-2 text-[11px] font-medium ${inspection.urgent ? "text-red-400" : "text-blue-400"}`}>
+          {inspection.label}
         </p>
       )}
     </Link>

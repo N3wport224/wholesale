@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { assignBuyerToDeal } from "@/lib/actions";
+import { useActionState, useState } from "react";
+import { assignBuyerToDeal, type ActionState } from "@/lib/actions";
 import { formatCurrency, marketingBlurb, suggestedAssignmentFee } from "@/lib/deal-logic";
 import { CopyBlock } from "@/components/CopyBlock";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -23,10 +23,15 @@ type Props = {
 };
 
 export function MarketingBlurbCard(props: Props) {
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    assignBuyerToDeal.bind(null, props.dealId),
+    {}
+  );
   const suggested = suggestedAssignmentFee(props.purchasePrice, props.estimatedValue);
   const [assignmentFee, setAssignmentFee] = useState(
     (props.currentAssignmentFee ?? suggested.low).toString()
   );
+  const [buyerId, setBuyerId] = useState(props.currentBuyerId ?? "");
 
   const blurb = marketingBlurb({
     address: props.address,
@@ -36,17 +41,18 @@ export function MarketingBlurbCard(props: Props) {
     purchasePrice: props.purchasePrice,
     estimatedValue: props.estimatedValue,
     rentComp: props.rentComp,
-    assignmentFee: Number(assignmentFee) || suggested.low,
+    assignmentFee: assignmentFee === "" ? suggested.low : Number(assignmentFee),
   });
 
   return (
-    <form action={assignBuyerToDeal.bind(null, props.dealId)} className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-neutral-300">Cash buyer</label>
           <select
             name="buyerId"
-            defaultValue={props.currentBuyerId ?? ""}
+            value={buyerId}
+            onChange={(e) => setBuyerId(e.target.value)}
             className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
           >
             <option value="">Not assigned yet</option>
@@ -87,6 +93,10 @@ export function MarketingBlurbCard(props: Props) {
         </p>
         <CopyBlock text={blurb} />
       </div>
+
+      {state.error && (
+        <p className="rounded-md border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">{state.error}</p>
+      )}
 
       <SubmitButton>Save & move to Marketing</SubmitButton>
     </form>
