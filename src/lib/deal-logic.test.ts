@@ -4,6 +4,7 @@ import {
   assignableOfferClause,
   assignedContractPrice,
   buyerMatchesDeal,
+  buyersToCsv,
   daysUntil,
   dealsToCsv,
   estimatedCapRate,
@@ -17,6 +18,7 @@ import {
   spread,
   suggestedAssignmentFee,
 } from "./deal-logic";
+import { parseCsv } from "./csv";
 
 describe("matchesCriteria", () => {
   it("matches a deal within the purchase-price and value bands", () => {
@@ -270,6 +272,62 @@ describe("dealsToCsv", () => {
   it("falls back to the raw status string for an unknown value", () => {
     const csv = dealsToCsv([{ ...baseDeal, status: "WEIRD" }]);
     expect(csv).toContain("WEIRD");
+  });
+});
+
+describe("buyersToCsv", () => {
+  const baseBuyer = {
+    name: "Marcus Reid",
+    email: "marcus@example.com",
+    phone: "555-1234",
+    minPrice: 5000,
+    maxPrice: 40000,
+    targetStates: "TX,OK",
+    notes: null,
+    deals: [{}, {}],
+  };
+
+  it("includes a header row and one row per buyer", () => {
+    const csv = buyersToCsv([baseBuyer]);
+    const lines = csv.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("Name");
+    expect(lines[1]).toContain("Marcus Reid");
+  });
+
+  it("formats target states and counts assigned deals", () => {
+    const csv = buyersToCsv([baseBuyer]);
+    const row = parseCsv(csv)[1];
+    // Name,Email,Phone,MinPrice,MaxPrice,TargetStates,Deals,Notes
+    expect(row[5]).toBe("TX, OK");
+    expect(row[6]).toBe("2");
+  });
+
+  it("renders an unrestricted buy-box as an empty target-states cell", () => {
+    const csv = buyersToCsv([{ ...baseBuyer, targetStates: null }]);
+    const row = parseCsv(csv)[1];
+    expect(row[5]).toBe("");
+  });
+
+  it("neutralizes formula-injection payloads in the name", () => {
+    const csv = buyersToCsv([{ ...baseBuyer, name: "=cmd|'/c calc'!A1" }]);
+    const row = parseCsv(csv)[1];
+    expect(row[0].startsWith("'=cmd")).toBe(true);
+  });
+
+  it("defaults deal count to zero when deals aren't included", () => {
+    const buyerWithoutDeals = {
+      name: baseBuyer.name,
+      email: baseBuyer.email,
+      phone: baseBuyer.phone,
+      minPrice: baseBuyer.minPrice,
+      maxPrice: baseBuyer.maxPrice,
+      targetStates: baseBuyer.targetStates,
+      notes: baseBuyer.notes,
+    };
+    const csv = buyersToCsv([buyerWithoutDeals]);
+    const row = parseCsv(csv)[1];
+    expect(row[6]).toBe("0");
   });
 });
 

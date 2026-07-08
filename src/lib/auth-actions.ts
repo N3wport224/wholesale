@@ -9,8 +9,20 @@ import {
   isAuthConfigured,
   sessionCookieOptions,
 } from "@/lib/auth";
+import {
+  isLockedOut,
+  lockoutRemainingSeconds,
+  recordFailedLoginAttempt,
+  recordSuccessfulLogin,
+} from "@/lib/rate-limit";
 
 export type LoginState = { error?: string };
+
+function lockoutMessage() {
+  const seconds = lockoutRemainingSeconds();
+  const minutes = Math.ceil(seconds / 60);
+  return `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+}
 
 export async function login(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   if (!isAuthConfigured()) {
@@ -19,11 +31,17 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     };
   }
 
-  const password = typeof formData.get("password") === "string" ? String(formData.get("password")) : "";
-  if (!checkPassword(password)) {
-    return { error: "Incorrect password." };
+  if (isLockedOut()) {
+    return { error: lockoutMessage() };
   }
 
+  const password = typeof formData.get("password") === "string" ? String(formData.get("password")) : "";
+  if (!checkPassword(password)) {
+    recordFailedLoginAttempt();
+    return { error: isLockedOut() ? lockoutMessage() : "Incorrect password." };
+  }
+
+  recordSuccessfulLogin();
   const token = createSessionToken();
   if (!token) return { error: "Server session isn't configured." };
 

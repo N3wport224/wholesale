@@ -205,6 +205,46 @@ export function dealsToCsv(
   return [CSV_HEADERS.join(","), ...rows].join("\n");
 }
 
+const BUYER_CSV_HEADERS = [
+  "Name",
+  "Email",
+  "Phone",
+  "Min Price",
+  "Max Price",
+  "Target States",
+  "Deals Assigned",
+  "Notes",
+] as const;
+
+export function buyersToCsv(
+  buyers: Array<{
+    name: string;
+    email: string | null;
+    phone: string | null;
+    minPrice: number | null;
+    maxPrice: number | null;
+    targetStates: string | null;
+    notes: string | null;
+    deals?: unknown[];
+  }>
+) {
+  const rows = buyers.map((b) =>
+    [
+      b.name,
+      b.email ?? "",
+      b.phone ?? "",
+      b.minPrice ?? "",
+      b.maxPrice ?? "",
+      formatTargetStates(b.targetStates) === "Any state" ? "" : formatTargetStates(b.targetStates),
+      b.deals?.length ?? 0,
+      b.notes ?? "",
+    ]
+      .map(csvEscape)
+      .join(",")
+  );
+  return [BUYER_CSV_HEADERS.join(","), ...rows].join("\n");
+}
+
 export function assignableOfferClause(buyerName: string) {
   const name = buyerName.trim() || "[Your Name]";
   return `Buyer: ${name} and/or Assigns`;

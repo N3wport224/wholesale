@@ -14,6 +14,7 @@ import {
 } from "@/lib/deal-logic";
 import { matchesDealFilters } from "@/lib/deal-query";
 import { DealCard } from "@/components/DealCard";
+import { RecentActivityFeed } from "@/components/RecentActivityFeed";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,17 @@ export default async function DashboardPage({
   searchParams: Promise<{ q?: string; source?: string; matchOnly?: string }>;
 }) {
   const filters = await searchParams;
-  const allDeals = await prisma.deal.findMany({
-    include: { buyer: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const [allDeals, recentActivity] = await Promise.all([
+    prisma.deal.findMany({
+      include: { buyer: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.dealActivity.findMany({
+      take: 8,
+      orderBy: { createdAt: "desc" },
+      include: { deal: { select: { id: true, address: true } } },
+    }),
+  ]);
 
   const activeDeals = allDeals.filter((d) => d.status !== "DEAD");
   const matchingDeals = activeDeals.filter((d) =>
@@ -113,13 +121,16 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-            <p className="text-xs text-neutral-500">{s.label}</p>
-            <p className="mt-1 text-lg font-semibold text-neutral-100">{s.value}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:col-span-2 lg:grid-cols-2">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+              <p className="text-xs text-neutral-500">{s.label}</p>
+              <p className="mt-1 text-lg font-semibold text-neutral-100">{s.value}</p>
+            </div>
+          ))}
+        </div>
+        <RecentActivityFeed activities={recentActivity} />
       </div>
 
       {allDeals.length === 0 ? (

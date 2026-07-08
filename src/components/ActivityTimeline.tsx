@@ -1,4 +1,4 @@
-const TYPE_DOT: Record<string, string> = {
+export const TYPE_DOT: Record<string, string> = {
   CREATED: "bg-neutral-500",
   UPDATED: "bg-neutral-500",
   STATUS_CHANGE: "bg-amber-400",

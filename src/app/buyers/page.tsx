@@ -12,15 +12,26 @@ export default async function BuyersPage() {
     include: { deals: true },
     orderBy: { name: "asc" },
   });
+  const exportHref = "/buyers/export";
 
   return (
     <div className="max-w-3xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Cash Buyers</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Your list of investors who buy contracts sight-unseen. Build this from investor
-          Facebook groups, BiggerPockets Marketplace, and local Meetup.com networks.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Cash Buyers</h1>
+          <p className="mt-1 text-sm text-neutral-400">
+            Your list of investors who buy contracts sight-unseen. Build this from investor
+            Facebook groups, BiggerPockets Marketplace, and local Meetup.com networks.
+          </p>
+        </div>
+        {buyers.length > 0 && (
+          <a
+            href={exportHref}
+            className="shrink-0 rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+          >
+            Export CSV
+          </a>
+        )}
       </div>
 
       <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-5">
