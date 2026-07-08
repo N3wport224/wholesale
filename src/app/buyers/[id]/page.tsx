@@ -10,6 +10,7 @@ import {
   spread,
 } from "@/lib/deal-logic";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ContactLine } from "@/components/ContactLine";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{buyer.name}</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            {[buyer.phone, buyer.email].filter(Boolean).join(" · ") || "No contact info"}
+            <ContactLine phone={buyer.phone} email={buyer.email} />
           </p>
         </div>
         <div className="flex gap-2">

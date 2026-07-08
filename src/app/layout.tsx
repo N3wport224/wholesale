@@ -29,7 +29,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">
-        <header className="border-b border-neutral-800 bg-neutral-900/60">
+        <header className="border-b border-neutral-800 bg-neutral-900/60 print:hidden">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
@@ -57,8 +57,10 @@ export default function RootLayout({
             </nav>
           </div>
         </header>
-        <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-8">{children}</main>
-        <footer className="border-t border-neutral-800 py-6 text-center text-xs text-neutral-500">
+        <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-8 print:max-w-none print:p-0">
+          {children}
+        </main>
+        <footer className="border-t border-neutral-800 py-6 text-center text-xs text-neutral-500 print:hidden">
           Sourced → Filtered → Under Contract → Marketed → Closed
         </footer>
       </body>

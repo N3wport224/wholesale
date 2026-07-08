@@ -88,6 +88,12 @@ export default async function DealDetailPage({
         </div>
         <div className="flex gap-2">
           <Link
+            href={`/deals/${deal.id}/sheet`}
+            className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
+          >
+            Print sheet
+          </Link>
+          <Link
             href={`/deals/${deal.id}/edit`}
             className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
           >

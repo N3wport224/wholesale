@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createBuyer, deleteBuyer } from "@/lib/actions";
 import { BuyerForm } from "@/components/BuyerForm";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { ContactLine } from "@/components/ContactLine";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export default async function BuyersPage() {
                 {buyer.name}
               </Link>
               <p className="text-xs text-neutral-500">
-                {[buyer.phone, buyer.email].filter(Boolean).join(" · ") || "No contact info"}
+                <ContactLine phone={buyer.phone} email={buyer.email} />
               </p>
               {buyer.notes && <p className="mt-1 text-xs text-neutral-500">{buyer.notes}</p>}
               <p className="mt-1 text-[11px] text-neutral-600">
