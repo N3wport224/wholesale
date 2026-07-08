@@ -66,6 +66,49 @@ export function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
+export function formatTargetStates(states: string | null | undefined) {
+  if (!states) return "Any state";
+  return states
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+export function buyerMatchesDeal(
+  buyer: { minPrice: number | null; maxPrice: number | null; targetStates: string | null },
+  deal: { purchasePrice: number; assignmentFee?: number | null; state: string }
+) {
+  const contractPrice = deal.purchasePrice + (deal.assignmentFee ?? 0);
+  if (buyer.minPrice !== null && contractPrice < buyer.minPrice) return false;
+  if (buyer.maxPrice !== null && contractPrice > buyer.maxPrice) return false;
+  if (buyer.targetStates) {
+    const states = buyer.targetStates.split(",").map((s) => s.trim().toUpperCase());
+    if (!states.includes(deal.state.toUpperCase())) return false;
+  }
+  return true;
+}
+
+// Rough estimate for buy-and-hold buyers: annual rent / total contract price.
+export function estimatedCapRate(
+  purchasePrice: number,
+  assignmentFee: number | null | undefined,
+  rentComp: number | null | undefined
+) {
+  if (!rentComp || rentComp <= 0) return null;
+  const totalPrice = purchasePrice + (assignmentFee ?? 0);
+  if (totalPrice <= 0) return null;
+  return (rentComp * 12) / totalPrice;
+}
+
+export function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 export function inspectionDeadline(
   contractDate: Date | null | undefined,
   inspectionDays: number | null | undefined
@@ -181,8 +224,11 @@ export function marketingBlurb(deal: {
     deal.purchasePrice,
     deal.assignmentFee ?? suggestedAssignmentFee(deal.purchasePrice, deal.estimatedValue).low
   );
+  const capRate = estimatedCapRate(askingPrice, 0, deal.rentComp);
   const rentLine = deal.rentComp
-    ? `\nEstimated rent comp: ${formatCurrency(deal.rentComp)}/mo.`
+    ? `\nEstimated rent comp: ${formatCurrency(deal.rentComp)}/mo${
+        capRate ? ` (~${formatPercent(capRate)} cap rate at asking price)` : ""
+      }.`
     : "";
 
   return `WHOLESALE CONTRACT AVAILABLE — ${deal.address}, ${deal.city}, ${deal.state} ${deal.zip}

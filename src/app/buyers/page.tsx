@@ -38,7 +38,9 @@ export default async function BuyersPage() {
             className="flex items-center justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-4"
           >
             <div className="min-w-0">
-              <p className="font-medium text-neutral-100">{buyer.name}</p>
+              <Link href={`/buyers/${buyer.id}`} className="font-medium text-neutral-100 hover:text-emerald-400">
+                {buyer.name}
+              </Link>
               <p className="text-xs text-neutral-500">
                 {[buyer.phone, buyer.email].filter(Boolean).join(" · ") || "No contact info"}
               </p>

@@ -16,7 +16,10 @@ async function main() {
       name: "Marcus Reid",
       email: "marcus@reidcapital.com",
       phone: "555-201-8834",
-      notes: "Buys single-family under $120K ARV in TX/OK, closes in 10 days, cash.",
+      notes: "Buys single-family under $120K ARV, closes in 10 days, cash.",
+      minPrice: 5000,
+      maxPrice: 40000,
+      targetStates: "TX,OK",
     },
   });
 
@@ -56,7 +59,7 @@ async function main() {
       rentComp: 1100,
       status: "UNDER_CONTRACT",
       earnestMoney: 750,
-      inspectionDays: 21,
+      inspectionDays: 5,
       contractDate: daysAgo(3),
       notes: "Seized in forfeiture case. Title company: River Valley Title.",
       createdAt: daysAgo(6),

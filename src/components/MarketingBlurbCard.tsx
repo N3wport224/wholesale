@@ -2,11 +2,17 @@
 
 import { useActionState, useState } from "react";
 import { assignBuyerToDeal, type ActionState } from "@/lib/actions";
-import { formatCurrency, marketingBlurb, suggestedAssignmentFee } from "@/lib/deal-logic";
+import { buyerMatchesDeal, formatCurrency, marketingBlurb, suggestedAssignmentFee } from "@/lib/deal-logic";
 import { CopyBlock } from "@/components/CopyBlock";
 import { SubmitButton } from "@/components/SubmitButton";
 
-type Buyer = { id: string; name: string };
+type Buyer = {
+  id: string;
+  name: string;
+  minPrice: number | null;
+  maxPrice: number | null;
+  targetStates: string | null;
+};
 
 type Props = {
   dealId: string;
@@ -33,6 +39,13 @@ export function MarketingBlurbCard(props: Props) {
   );
   const [buyerId, setBuyerId] = useState(props.currentBuyerId ?? "");
 
+  const fee = assignmentFee === "" ? suggested.low : Number(assignmentFee);
+  const matchedBuyerIds = new Set(
+    props.buyers
+      .filter((b) => buyerMatchesDeal(b, { purchasePrice: props.purchasePrice, assignmentFee: fee, state: props.state }))
+      .map((b) => b.id)
+  );
+
   const blurb = marketingBlurb({
     address: props.address,
     city: props.city,
@@ -58,13 +71,19 @@ export function MarketingBlurbCard(props: Props) {
             <option value="">Not assigned yet</option>
             {props.buyers.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name}
+                {matchedBuyerIds.has(b.id) ? `${b.name} — buy box match` : b.name}
               </option>
             ))}
           </select>
           {props.buyers.length === 0 && (
             <p className="mt-1 text-xs text-neutral-500">
               No buyers yet — add one on the Cash Buyers page.
+            </p>
+          )}
+          {props.buyers.length > 0 && matchedBuyerIds.size > 0 && (
+            <p className="mt-1 text-xs text-emerald-400">
+              {matchedBuyerIds.size} buyer{matchedBuyerIds.size === 1 ? "" : "s"} match this
+              price and state based on their buy box.
             </p>
           )}
         </div>

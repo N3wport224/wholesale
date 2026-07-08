@@ -256,12 +256,36 @@ function validateBuyerFields(formData: FormData) {
     return { error: "That email address doesn't look valid." } as const;
   }
 
+  const minPrice = num(formData, "minPrice");
+  const maxPrice = num(formData, "maxPrice");
+  if (minPrice !== null && minPrice < 0) {
+    return { error: "Minimum buy box price can't be negative." } as const;
+  }
+  if (maxPrice !== null && maxPrice < 0) {
+    return { error: "Maximum buy box price can't be negative." } as const;
+  }
+  if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+    return { error: "Minimum buy box price can't be greater than the maximum." } as const;
+  }
+
+  const targetStatesRaw = str(formData, "targetStates");
+  const states = targetStatesRaw
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  if (states.some((s) => s.length !== 2)) {
+    return { error: "Target states should be 2-letter codes separated by commas, like TX, OK." } as const;
+  }
+
   return {
     data: {
       name,
       email: email || null,
       phone: str(formData, "phone") || null,
       notes: str(formData, "notes") || null,
+      minPrice,
+      maxPrice,
+      targetStates: states.length > 0 ? states.join(",") : null,
     },
   } as const;
 }

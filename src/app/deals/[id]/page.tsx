@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import {
   STATUS_LABELS,
   DealStatus,
+  estimatedCapRate,
   formatCurrency,
+  formatPercent,
   inspectionStatusLabel,
   matchesCriteria,
   spread,
@@ -45,6 +47,7 @@ export default async function DealDetailPage({
   const gap = spread(deal.purchasePrice, deal.estimatedValue);
   const inspection =
     deal.status === "UNDER_CONTRACT" ? inspectionStatusLabel(deal.contractDate, deal.inspectionDays) : null;
+  const capRate = estimatedCapRate(deal.purchasePrice, deal.assignmentFee, deal.rentComp);
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -110,11 +113,15 @@ export default async function DealDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Stat label="Purchase price" value={formatCurrency(deal.purchasePrice)} />
         <Stat label="Estimated value" value={formatCurrency(deal.estimatedValue)} />
         <Stat label="Spread" value={formatCurrency(gap)} accent />
         <Stat label="Rent comp" value={deal.rentComp ? `${formatCurrency(deal.rentComp)}/mo` : "—"} />
+        <Stat
+          label={deal.assignmentFee ? "Cap rate at asking" : "Cap rate at your price"}
+          value={formatPercent(capRate)}
+        />
       </div>
 
       <Section title="Step 3 — Lock it under contract">
@@ -148,9 +155,17 @@ export default async function DealDetailPage({
         </p>
         {deal.status === "CLOSED" ? (
           <p className="text-sm text-neutral-300">
-            {deal.buyerId
-              ? `Assigned to ${buyers.find((b) => b.id === deal.buyerId)?.name ?? "a buyer"} for ${formatCurrency(deal.assignmentFee)}.`
-              : "No buyer was recorded before this deal closed."}
+            {deal.buyerId ? (
+              <>
+                Assigned to{" "}
+                <Link href={`/buyers/${deal.buyerId}`} className="text-emerald-400 hover:underline">
+                  {buyers.find((b) => b.id === deal.buyerId)?.name ?? "a buyer"}
+                </Link>{" "}
+                for {formatCurrency(deal.assignmentFee)}.
+              </>
+            ) : (
+              "No buyer was recorded before this deal closed."
+            )}
           </p>
         ) : (
           <MarketingBlurbCard

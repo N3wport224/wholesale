@@ -5,7 +5,10 @@ import {
   DealStatus,
   STATUS_LABELS,
   SOURCE_SITES,
+  daysUntil,
   formatCurrency,
+  inspectionDeadline,
+  inspectionStatusLabel,
   matchesCriteria,
   spread,
 } from "@/lib/deal-logic";
@@ -44,6 +47,16 @@ export default async function DashboardPage({
     { label: "Closed profit collected", value: formatCurrency(closedProfit) },
   ];
 
+  const needsAttention: Array<{ id: string; address: string; label: string; days: number }> = [];
+  for (const d of allDeals) {
+    if (d.status !== "UNDER_CONTRACT") continue;
+    const inspection = inspectionStatusLabel(d.contractDate, d.inspectionDays);
+    if (!inspection || !inspection.urgent) continue;
+    const days = daysUntil(inspectionDeadline(d.contractDate, d.inspectionDays)) ?? 0;
+    needsAttention.push({ id: d.id, address: d.address, label: inspection.label, days });
+  }
+  needsAttention.sort((a, b) => a.days - b.days);
+
   const hasActiveFilters = Boolean(
     filters.q?.trim() || (filters.source && filters.source !== "All") || filters.matchOnly === "1"
   );
@@ -79,6 +92,26 @@ export default async function DashboardPage({
           contract, then flip to a cash buyer.
         </p>
       </div>
+
+      {needsAttention.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-red-900 bg-red-950/20 p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-red-400">
+            Needs attention — inspection deadline
+          </h2>
+          <div className="space-y-1.5">
+            {needsAttention.map((item) => (
+              <Link
+                key={item.id}
+                href={`/deals/${item.id}`}
+                className="flex items-center justify-between gap-4 text-sm text-neutral-200 hover:text-white"
+              >
+                <span className="truncate">{item.address}</span>
+                <span className="shrink-0 font-medium text-red-400">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.map((s) => (

@@ -11,6 +11,9 @@ type BuyerFormValues = {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  targetStates: string | null;
 };
 
 export function BuyerForm({
@@ -43,7 +46,7 @@ export function BuyerForm({
           className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
         />
       </div>
-      <div>
+      <div className="sm:col-span-2">
         <label className="block text-sm font-medium text-neutral-300">Email</label>
         <input
           name="email"
@@ -52,9 +55,51 @@ export function BuyerForm({
           className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
         />
       </div>
+
+      <div className="sm:col-span-2 border-t border-neutral-800 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Buy box</p>
+        <p className="mt-1 text-xs text-neutral-500">
+          Used to suggest this buyer for deals that fit their price range and target states.
+        </p>
+      </div>
       <div>
         <label className="block text-sm font-medium text-neutral-300">
-          Notes <span className="text-neutral-600">(buy box, markets, price range)</span>
+          Min contract price <span className="text-neutral-600">(optional)</span>
+        </label>
+        <input
+          name="minPrice"
+          type="number"
+          min={0}
+          defaultValue={defaultValues?.minPrice ?? undefined}
+          className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-neutral-300">
+          Max contract price <span className="text-neutral-600">(optional)</span>
+        </label>
+        <input
+          name="maxPrice"
+          type="number"
+          min={0}
+          defaultValue={defaultValues?.maxPrice ?? undefined}
+          className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="block text-sm font-medium text-neutral-300">
+          Target states <span className="text-neutral-600">(comma-separated, e.g. TX, OK — blank means any)</span>
+        </label>
+        <input
+          name="targetStates"
+          defaultValue={defaultValues?.targetStates ?? undefined}
+          placeholder="TX, OK"
+          className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="block text-sm font-medium text-neutral-300">
+          Notes <span className="text-neutral-600">(anything else — closing speed, proof of funds, etc.)</span>
         </label>
         <input
           name="notes"
