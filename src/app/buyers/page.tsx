@@ -1,0 +1,95 @@
+import { prisma } from "@/lib/prisma";
+import { createBuyer, deleteBuyer } from "@/lib/actions";
+import { SubmitButton } from "@/components/SubmitButton";
+
+export const dynamic = "force-dynamic";
+
+export default async function BuyersPage() {
+  const buyers = await prisma.buyer.findMany({
+    include: { deals: true },
+    orderBy: { name: "asc" },
+  });
+
+  return (
+    <div className="max-w-3xl space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Cash Buyers</h1>
+        <p className="mt-1 text-sm text-neutral-400">
+          Your list of investors who buy contracts sight-unseen. Build this from investor
+          Facebook groups, BiggerPockets Marketplace, and local Meetup.com networks.
+        </p>
+      </div>
+
+      <form
+        action={createBuyer}
+        className="grid grid-cols-1 gap-4 rounded-lg border border-neutral-800 bg-neutral-900/50 p-5 sm:grid-cols-2"
+      >
+        <div>
+          <label className="block text-sm font-medium text-neutral-300">Name</label>
+          <input
+            name="name"
+            required
+            className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-300">Phone</label>
+          <input
+            name="phone"
+            className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-300">Email</label>
+          <input
+            name="email"
+            type="email"
+            className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-300">
+            Notes <span className="text-neutral-600">(buy box, markets, price range)</span>
+          </label>
+          <input
+            name="notes"
+            className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <SubmitButton>Add buyer</SubmitButton>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        {buyers.length === 0 && (
+          <p className="rounded-lg border border-dashed border-neutral-800 p-6 text-center text-sm text-neutral-500">
+            No buyers yet.
+          </p>
+        )}
+        {buyers.map((buyer) => (
+          <div
+            key={buyer.id}
+            className="flex items-center justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-900 p-4"
+          >
+            <div>
+              <p className="font-medium text-neutral-100">{buyer.name}</p>
+              <p className="text-xs text-neutral-500">
+                {[buyer.phone, buyer.email].filter(Boolean).join(" · ") || "No contact info"}
+              </p>
+              {buyer.notes && <p className="mt-1 text-xs text-neutral-500">{buyer.notes}</p>}
+              <p className="mt-1 text-[11px] text-neutral-600">
+                {buyer.deals.length} deal{buyer.deals.length === 1 ? "" : "s"} assigned
+              </p>
+            </div>
+            <form action={deleteBuyer.bind(null, buyer.id)}>
+              <SubmitButton className="rounded-md border border-red-900 px-3 py-1.5 text-xs text-red-400 hover:bg-red-950">
+                Remove
+              </SubmitButton>
+            </form>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

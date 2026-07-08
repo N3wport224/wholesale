@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// status values: SOURCED, UNDER_CONTRACT, MARKETING, CLOSED, DEAD
+model Deal {
+  id             String    @id @default(cuid())
+  address        String
+  city           String
+  state          String
+  zip            String
+  sourceSite     String    @default("Other")
+  purchasePrice  Float
+  estimatedValue Float
+  rentComp       Float?
+  status         String    @default("SOURCED")
+  earnestMoney   Float?
+  inspectionDays Int?
+  contractDate   DateTime?
+  assignmentFee  Float?
+  closingDate    DateTime?
+  notes          String?
+  buyerId        String?
+  buyer          Buyer?    @relation(fields: [buyerId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Buyer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  deals     Deal[]
+}
