@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { SOURCE_SITES } from "@/lib/deal-logic";
+import { parseCsv } from "@/lib/csv";
 
 export type ActionState = { error?: string };
 
@@ -36,14 +37,34 @@ function date(formData: FormData, key: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function validateDealFields(formData: FormData) {
-  const address = str(formData, "address");
-  const city = str(formData, "city");
-  const state = str(formData, "state");
-  const zip = str(formData, "zip");
-  const purchasePrice = num(formData, "purchasePrice");
-  const estimatedValue = num(formData, "estimatedValue");
-  const rentComp = num(formData, "rentComp");
+type DealRecordResult =
+  | { error: string }
+  | {
+      data: {
+        address: string;
+        city: string;
+        state: string;
+        zip: string;
+        sourceSite: string;
+        purchasePrice: number;
+        estimatedValue: number;
+        rentComp: number | null;
+        notes: string | null;
+      };
+    };
+
+function validateDealRecord(record: Record<string, string | undefined>): DealRecordResult {
+  const address = (record.address ?? "").trim();
+  const city = (record.city ?? "").trim();
+  const state = (record.state ?? "").trim();
+  const zip = (record.zip ?? "").trim();
+  const purchasePriceRaw = (record.purchasePrice ?? "").trim();
+  const estimatedValueRaw = (record.estimatedValue ?? "").trim();
+  const rentCompRaw = (record.rentComp ?? "").trim();
+
+  const purchasePrice = purchasePriceRaw === "" ? null : Number(purchasePriceRaw);
+  const estimatedValue = estimatedValueRaw === "" ? null : Number(estimatedValueRaw);
+  const rentComp = rentCompRaw === "" ? null : Number(rentCompRaw);
 
   if (!address || !city || !state || !zip) {
     return { error: "Address, city, state, and zip are all required." } as const;
@@ -51,17 +72,17 @@ function validateDealFields(formData: FormData) {
   if (state.length !== 2) {
     return { error: "State should be a 2-letter code, like TX." } as const;
   }
-  if (purchasePrice === null || purchasePrice <= 0) {
+  if (purchasePrice === null || !Number.isFinite(purchasePrice) || purchasePrice <= 0) {
     return { error: "Purchase price must be a number greater than 0." } as const;
   }
-  if (estimatedValue === null || estimatedValue <= 0) {
+  if (estimatedValue === null || !Number.isFinite(estimatedValue) || estimatedValue <= 0) {
     return { error: "Estimated value must be a number greater than 0." } as const;
   }
-  if (rentComp !== null && rentComp < 0) {
+  if (rentComp !== null && (!Number.isFinite(rentComp) || rentComp < 0)) {
     return { error: "Rent comp can't be negative." } as const;
   }
 
-  const sourceSiteRaw = str(formData, "sourceSite");
+  const sourceSiteRaw = (record.sourceSite ?? "").trim();
   const sourceSite = (SOURCE_SITES as readonly string[]).includes(sourceSiteRaw)
     ? sourceSiteRaw
     : "Other";
@@ -76,9 +97,23 @@ function validateDealFields(formData: FormData) {
       purchasePrice,
       estimatedValue,
       rentComp,
-      notes: str(formData, "notes") || null,
+      notes: (record.notes ?? "").trim() || null,
     },
   } as const;
+}
+
+function validateDealFields(formData: FormData) {
+  return validateDealRecord({
+    address: str(formData, "address"),
+    city: str(formData, "city"),
+    state: str(formData, "state"),
+    zip: str(formData, "zip"),
+    sourceSite: str(formData, "sourceSite"),
+    purchasePrice: str(formData, "purchasePrice"),
+    estimatedValue: str(formData, "estimatedValue"),
+    rentComp: str(formData, "rentComp"),
+    notes: str(formData, "notes"),
+  });
 }
 
 async function findDuplicateDeal(address: string, city: string, state: string) {
@@ -200,6 +235,50 @@ export async function assignBuyerToDeal(
   return NO_ERROR;
 }
 
+export async function updateBuyerOutreach(
+  dealId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const deal = await prisma.deal.findUnique({ where: { id: dealId } });
+  if (!deal) return { error: "Deal not found." };
+
+  const checkedIds = new Set(formData.getAll("buyerIds").map(String));
+  const existing = await prisma.dealBuyerOutreach.findMany({ where: { dealId } });
+  const existingIds = new Set(existing.map((o) => o.buyerId));
+
+  const toAdd = [...checkedIds].filter((id) => !existingIds.has(id));
+  const toRemove = existing.filter((o) => !checkedIds.has(o.buyerId));
+
+  if (toAdd.length > 0) {
+    await prisma.dealBuyerOutreach.createMany({
+      data: toAdd.map((buyerId) => ({ dealId, buyerId })),
+    });
+  }
+  if (toRemove.length > 0) {
+    await prisma.dealBuyerOutreach.deleteMany({
+      where: { id: { in: toRemove.map((o) => o.id) } },
+    });
+  }
+
+  if (toAdd.length > 0 || toRemove.length > 0) {
+    const parts: string[] = [];
+    if (toAdd.length > 0) {
+      const addedBuyers = await prisma.buyer.findMany({
+        where: { id: { in: toAdd } },
+        select: { name: true },
+      });
+      parts.push(`sent to ${addedBuyers.map((b) => b.name).join(", ")}`);
+    }
+    if (toRemove.length > 0) parts.push(`removed ${toRemove.length} from the outreach list`);
+    await logActivity(dealId, "OUTREACH", `Marketing outreach updated — ${parts.join("; ")}.`);
+  }
+
+  revalidatePath(`/deals/${dealId}`);
+  revalidatePath("/buyers");
+  return NO_ERROR;
+}
+
 export async function closeDeal(
   dealId: string,
   _prevState: ActionState,
@@ -245,6 +324,76 @@ export async function deleteDeal(dealId: string) {
   await prisma.deal.delete({ where: { id: dealId } });
   revalidatePath("/");
   redirect("/");
+}
+
+export type ImportResult = {
+  error?: string;
+  summary?: { created: number; skipped: { row: number; reason: string }[] };
+};
+
+const IMPORT_COLUMN_ALIASES: Record<string, string> = {
+  address: "address",
+  city: "city",
+  state: "state",
+  zip: "zip",
+  zipcode: "zip",
+  "zip code": "zip",
+  source: "sourceSite",
+  sourcesite: "sourceSite",
+  "source site": "sourceSite",
+  purchaseprice: "purchasePrice",
+  "purchase price": "purchasePrice",
+  estimatedvalue: "estimatedValue",
+  "estimated value": "estimatedValue",
+  arv: "estimatedValue",
+  rentcomp: "rentComp",
+  "rent comp": "rentComp",
+  rent: "rentComp",
+  notes: "notes",
+};
+
+export async function importDeals(_prevState: ImportResult, formData: FormData): Promise<ImportResult> {
+  const csvText = str(formData, "csv");
+  if (!csvText) return { error: "Paste or upload some CSV data first." };
+
+  const rows = parseCsv(csvText);
+  if (rows.length < 2) return { error: "Couldn't find any data rows below the header." };
+
+  const [headerRow, ...dataRows] = rows;
+  const columns = headerRow.map((h) => IMPORT_COLUMN_ALIASES[h.trim().toLowerCase()] ?? null);
+
+  const required = ["address", "city", "state", "zip", "purchasePrice", "estimatedValue"];
+  if (required.some((col) => !columns.includes(col))) {
+    return {
+      error:
+        "CSV header must include Address, City, State, Zip, Purchase Price, and Estimated Value columns.",
+    };
+  }
+
+  const skipped: { row: number; reason: string }[] = [];
+  let created = 0;
+
+  for (let i = 0; i < dataRows.length; i++) {
+    const rowNum = i + 2; // +1 for the header row, +1 to make it 1-indexed
+    const values = dataRows[i];
+    const record: Record<string, string> = {};
+    columns.forEach((col, idx) => {
+      if (col) record[col] = values[idx] ?? "";
+    });
+
+    const validated = validateDealRecord(record);
+    if ("error" in validated) {
+      skipped.push({ row: rowNum, reason: validated.error });
+      continue;
+    }
+
+    const deal = await prisma.deal.create({ data: validated.data });
+    await logActivity(deal.id, "CREATED", `Deal imported from CSV (row ${rowNum}).`);
+    created++;
+  }
+
+  revalidatePath("/");
+  return { summary: { created, skipped } };
 }
 
 function validateBuyerFields(formData: FormData) {

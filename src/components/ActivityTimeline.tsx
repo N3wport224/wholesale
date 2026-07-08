@@ -5,7 +5,7 @@ const TYPE_DOT: Record<string, string> = {
   CONTRACT: "bg-blue-400",
   BUYER_ASSIGNED: "bg-purple-400",
   CLOSED: "bg-emerald-400",
-  NOTE: "bg-neutral-500",
+  OUTREACH: "bg-sky-400",
 };
 
 export function ActivityTimeline({

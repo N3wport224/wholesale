@@ -15,6 +15,7 @@ import { markDealDead, deleteDeal, updateDealNotes } from "@/lib/actions";
 import { ContractClauseCard } from "@/components/ContractClauseCard";
 import { ContractTermsForm } from "@/components/ContractTermsForm";
 import { MarketingBlurbCard } from "@/components/MarketingBlurbCard";
+import { BuyerOutreachChecklist } from "@/components/BuyerOutreachChecklist";
 import { ClosingForm } from "@/components/ClosingForm";
 import { ActivityTimeline } from "@/components/ActivityTimeline";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -38,11 +39,15 @@ export default async function DealDetailPage({
   const { duplicate } = await searchParams;
   const deal = await prisma.deal.findUnique({
     where: { id },
-    include: { activities: { orderBy: { createdAt: "desc" } } },
+    include: {
+      activities: { orderBy: { createdAt: "desc" } },
+      outreach: { select: { buyerId: true } },
+    },
   });
   if (!deal) notFound();
 
   const buyers = await prisma.buyer.findMany({ orderBy: { name: "asc" } });
+  const sentBuyerIds = deal.outreach.map((o) => o.buyerId);
   const isMatch = matchesCriteria(deal.purchasePrice, deal.estimatedValue);
   const gap = spread(deal.purchasePrice, deal.estimatedValue);
   const inspection =
@@ -160,34 +165,53 @@ export default async function DealDetailPage({
           Meetup.com networks, then record who you assigned it to.
         </p>
         {deal.status === "CLOSED" ? (
-          <p className="text-sm text-neutral-300">
-            {deal.buyerId ? (
-              <>
-                Assigned to{" "}
-                <Link href={`/buyers/${deal.buyerId}`} className="text-emerald-400 hover:underline">
-                  {buyers.find((b) => b.id === deal.buyerId)?.name ?? "a buyer"}
-                </Link>{" "}
-                for {formatCurrency(deal.assignmentFee)}.
-              </>
-            ) : (
-              "No buyer was recorded before this deal closed."
+          <>
+            <p className="text-sm text-neutral-300">
+              {deal.buyerId ? (
+                <>
+                  Assigned to{" "}
+                  <Link href={`/buyers/${deal.buyerId}`} className="text-emerald-400 hover:underline">
+                    {buyers.find((b) => b.id === deal.buyerId)?.name ?? "a buyer"}
+                  </Link>{" "}
+                  for {formatCurrency(deal.assignmentFee)}.
+                </>
+              ) : (
+                "No buyer was recorded before this deal closed."
+              )}
+            </p>
+            {sentBuyerIds.length > 0 && (
+              <p className="text-xs text-neutral-500">
+                Also sent to:{" "}
+                {sentBuyerIds
+                  .map((id) => buyers.find((b) => b.id === id)?.name)
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
             )}
-          </p>
+          </>
         ) : (
-          <MarketingBlurbCard
-            key={`${deal.buyerId ?? "none"}-${deal.assignmentFee ?? "0"}`}
-            dealId={deal.id}
-            address={deal.address}
-            city={deal.city}
-            state={deal.state}
-            zip={deal.zip}
-            purchasePrice={deal.purchasePrice}
-            estimatedValue={deal.estimatedValue}
-            rentComp={deal.rentComp}
-            buyers={buyers}
-            currentBuyerId={deal.buyerId}
-            currentAssignmentFee={deal.assignmentFee}
-          />
+          <>
+            <MarketingBlurbCard
+              key={`${deal.buyerId ?? "none"}-${deal.assignmentFee ?? "0"}`}
+              dealId={deal.id}
+              address={deal.address}
+              city={deal.city}
+              state={deal.state}
+              zip={deal.zip}
+              purchasePrice={deal.purchasePrice}
+              estimatedValue={deal.estimatedValue}
+              rentComp={deal.rentComp}
+              buyers={buyers}
+              currentBuyerId={deal.buyerId}
+              currentAssignmentFee={deal.assignmentFee}
+            />
+            <BuyerOutreachChecklist
+              key={sentBuyerIds.slice().sort().join(",")}
+              dealId={deal.id}
+              buyers={buyers}
+              sentBuyerIds={sentBuyerIds}
+            />
+          </>
         )}
       </Section>
 

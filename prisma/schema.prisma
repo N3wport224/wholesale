@@ -33,6 +33,7 @@ model Deal {
   buyerId        String?
   buyer          Buyer?    @relation(fields: [buyerId], references: [id])
   activities     DealActivity[]
+  outreach       DealBuyerOutreach[]
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 }
@@ -49,6 +50,21 @@ model Buyer {
   targetStates String?
   createdAt    DateTime @default(now())
   deals        Deal[]
+  outreach     DealBuyerOutreach[]
+}
+
+// Tracks which buyers a deal was marketed/sent to, separate from the final assignment.
+model DealBuyerOutreach {
+  id      String   @id @default(cuid())
+  dealId  String
+  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  buyerId String
+  buyer   Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  sentAt  DateTime @default(now())
+
+  @@unique([dealId, buyerId])
+  @@index([dealId])
+  @@index([buyerId])
 }
 
 // type values: CREATED, UPDATED, STATUS_CHANGE, CONTRACT, BUYER_ASSIGNED, CLOSED

@@ -6,7 +6,8 @@ export type ActivityType =
   | "STATUS_CHANGE"
   | "CONTRACT"
   | "BUYER_ASSIGNED"
-  | "CLOSED";
+  | "CLOSED"
+  | "OUTREACH";
 
 export async function logActivity(dealId: string, type: ActivityType, message: string) {
   await prisma.dealActivity.create({ data: { dealId, type, message } });

@@ -18,7 +18,10 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const buyer = await prisma.buyer.findUnique({
     where: { id },
-    include: { deals: { orderBy: { createdAt: "desc" } } },
+    include: {
+      deals: { orderBy: { createdAt: "desc" } },
+      outreach: { include: { deal: true }, orderBy: { sentAt: "desc" } },
+    },
   });
   if (!buyer) notFound();
 
@@ -61,7 +64,8 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+        <Stat label="Deals contacted" value={buyer.outreach.length.toString()} />
         <Stat label="Deals assigned" value={buyer.deals.length.toString()} />
         <Stat label="Deals closed" value={closedDeals.length.toString()} />
         <Stat label="Fees collected" value={formatCurrency(totalCollected)} />
@@ -118,6 +122,35 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
                     Spread {formatCurrency(spread(deal.purchasePrice, deal.estimatedValue))}
                   </p>
                 </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900/50 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
+          Marketed to
+        </h2>
+        {buyer.outreach.length === 0 ? (
+          <p className="text-sm text-neutral-500">Not sent any deals yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {buyer.outreach.map((o) => (
+              <Link
+                key={o.id}
+                href={`/deals/${o.deal.id}`}
+                className="flex items-center justify-between gap-4 rounded-md border border-neutral-800 bg-neutral-900 p-3 hover:border-neutral-700"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-neutral-100">{o.deal.address}</p>
+                  <p className="text-xs text-neutral-500">
+                    {o.deal.city}, {o.deal.state} · {STATUS_LABELS[o.deal.status as DealStatus]}
+                  </p>
+                </div>
+                <p className="shrink-0 text-xs text-neutral-600">
+                  {o.sentAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </p>
               </Link>
             ))}
           </div>

@@ -129,12 +129,20 @@ export default async function DashboardPage({
             Add a deal you found on USMarshals.gov, GSAAuctions.gov, Treasury.gov, or HUD Home
             Store to start the pipeline.
           </p>
-          <Link
-            href="/deals/new"
-            className="mt-4 inline-block rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-emerald-400"
-          >
-            + New Deal
-          </Link>
+          <div className="mt-4 flex justify-center gap-2">
+            <Link
+              href="/deals/new"
+              className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-emerald-400"
+            >
+              + New Deal
+            </Link>
+            <Link
+              href="/deals/import"
+              className="rounded-md border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+            >
+              Import CSV
+            </Link>
+          </div>
         </div>
       ) : (
         <>
@@ -188,9 +196,15 @@ export default async function DashboardPage({
                 Clear
               </Link>
             )}
+            <Link
+              href="/deals/import"
+              className="ml-auto rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+            >
+              Import CSV
+            </Link>
             <a
               href={exportHref}
-              className="ml-auto rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+              className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
             >
               Export CSV
             </a>

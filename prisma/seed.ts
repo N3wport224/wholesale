@@ -23,6 +23,18 @@ async function main() {
     },
   });
 
+  const buyer2 = await prisma.buyer.create({
+    data: {
+      name: "Priya Shah",
+      email: "priya@shahproperties.com",
+      phone: "555-448-2210",
+      notes: "Buy-and-hold investor, wants strong rent comps.",
+      minPrice: 2000,
+      maxPrice: 15000,
+      targetStates: null,
+    },
+  });
+
   const sourced = await prisma.deal.create({
     data: {
       address: "412 Birchwood Ave",
@@ -44,6 +56,20 @@ async function main() {
       type: "CREATED",
       message: "Deal sourced from GSAAuctions.gov.",
       createdAt: daysAgo(2),
+    },
+  });
+  await prisma.dealBuyerOutreach.createMany({
+    data: [
+      { dealId: sourced.id, buyerId: buyer.id, sentAt: daysAgo(1) },
+      { dealId: sourced.id, buyerId: buyer2.id, sentAt: daysAgo(1) },
+    ],
+  });
+  await prisma.dealActivity.create({
+    data: {
+      dealId: sourced.id,
+      type: "OUTREACH",
+      message: `Marketing outreach updated — sent to ${buyer.name}, ${buyer2.name}.`,
+      createdAt: daysAgo(1),
     },
   });
 
@@ -124,6 +150,12 @@ async function main() {
       },
     ],
   });
+  await prisma.dealBuyerOutreach.createMany({
+    data: [
+      { dealId: marketing.id, buyerId: buyer.id, sentAt: daysAgo(3) },
+      { dealId: marketing.id, buyerId: buyer2.id, sentAt: daysAgo(3) },
+    ],
+  });
 
   const closed = await prisma.deal.create({
     data: {
@@ -175,7 +207,7 @@ async function main() {
     ],
   });
 
-  console.log("Seeded 1 buyer, 4 deals, and their activity timelines.");
+  console.log("Seeded 2 buyers, 4 deals, and their activity timelines.");
 }
 
 main()
