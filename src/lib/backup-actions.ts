@@ -44,6 +44,7 @@ export async function restoreBackup(_prevState: RestoreState, formData: FormData
         ...d,
         contractDate: d.contractDate ? new Date(d.contractDate) : null,
         closingDate: d.closingDate ? new Date(d.closingDate) : null,
+        followUpDate: d.followUpDate ? new Date(d.followUpDate) : null,
         createdAt: new Date(d.createdAt),
         updatedAt: new Date(d.updatedAt),
       })),

@@ -320,6 +320,30 @@ export async function updateDealNotes(dealId: string, formData: FormData) {
   revalidatePath(`/deals/${dealId}`);
 }
 
+export async function updateFollowUp(
+  dealId: string,
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const deal = await prisma.deal.findUnique({ where: { id: dealId } });
+  if (!deal) return { error: "Deal not found." };
+
+  const followUpDateField = parseOptionalDate(str(formData, "followUpDate"), "Follow-up date");
+  if ("error" in followUpDateField) return { error: followUpDateField.error };
+
+  await prisma.deal.update({
+    where: { id: dealId },
+    data: {
+      followUpDate: followUpDateField.value,
+      followUpNote: str(formData, "followUpNote") || null,
+    },
+  });
+
+  revalidatePath("/");
+  revalidatePath(`/deals/${dealId}`);
+  return NO_ERROR;
+}
+
 export async function deleteDeal(dealId: string) {
   await prisma.deal.delete({ where: { id: dealId } });
   revalidatePath("/");

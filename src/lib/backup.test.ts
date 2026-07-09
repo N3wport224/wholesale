@@ -66,6 +66,34 @@ describe("validateBackupData", () => {
     }
   });
 
+  it("accepts a backup exported before the follow-up fields existed (missing keys default to null)", () => {
+    // validBackup()'s deals don't include followUpDate/followUpNote at all —
+    // simulating a backup downloaded before this feature shipped.
+    const result = validateBackupData(validBackup());
+    if (!("data" in result)) throw new Error("expected valid backup");
+    expect(result.data.deals[0].followUpDate).toBeNull();
+    expect(result.data.deals[0].followUpNote).toBeNull();
+  });
+
+  it("accepts a backup with follow-up fields present and preserves their values", () => {
+    const backup = validBackup();
+    Object.assign(backup.deals[0], {
+      followUpDate: "2026-02-01T00:00:00.000Z",
+      followUpNote: "Call about inspection report",
+    });
+    const result = validateBackupData(backup);
+    if (!("data" in result)) throw new Error("expected valid backup");
+    expect(result.data.deals[0].followUpDate).toBe("2026-02-01T00:00:00.000Z");
+    expect(result.data.deals[0].followUpNote).toBe("Call about inspection report");
+  });
+
+  it("rejects a deal with an invalid follow-up date", () => {
+    const backup = validBackup();
+    Object.assign(backup.deals[0], { followUpDate: "not-a-date" });
+    const result = validateBackupData(backup);
+    expect(result).toEqual({ error: "deals[0] has an invalid follow-up date." });
+  });
+
   it("rejects non-object input", () => {
     expect(validateBackupData(null)).toEqual({
       error: "That doesn't look like a backup file — expected a JSON object.",

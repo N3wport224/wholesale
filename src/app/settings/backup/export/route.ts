@@ -40,6 +40,8 @@ export async function GET() {
       assignmentFee: d.assignmentFee,
       closingDate: d.closingDate ? d.closingDate.toISOString() : null,
       notes: d.notes,
+      followUpDate: d.followUpDate ? d.followUpDate.toISOString() : null,
+      followUpNote: d.followUpNote,
       buyerId: d.buyerId,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),

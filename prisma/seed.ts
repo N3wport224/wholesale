@@ -47,6 +47,8 @@ async function main() {
       rentComp: 950,
       status: "SOURCED",
       notes: "Tax-defaulted single family, vacant 2 years. Needs full rehab.",
+      followUpDate: daysAgo(-1),
+      followUpNote: "Check if county will confirm clear title before we lock this up.",
       createdAt: daysAgo(2),
     },
   });

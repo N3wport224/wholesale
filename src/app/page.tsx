@@ -6,6 +6,7 @@ import {
   STATUS_LABELS,
   SOURCE_SITES,
   daysUntil,
+  followUpStatusLabel,
   formatCurrency,
   inspectionDeadline,
   inspectionStatusLabel,
@@ -55,13 +56,22 @@ export default async function DashboardPage({
     { label: "Closed profit collected", value: formatCurrency(closedProfit) },
   ];
 
-  const needsAttention: Array<{ id: string; address: string; label: string; days: number }> = [];
+  const needsAttention: Array<{ key: string; id: string; address: string; label: string; days: number }> = [];
   for (const d of allDeals) {
-    if (d.status !== "UNDER_CONTRACT") continue;
-    const inspection = inspectionStatusLabel(d.contractDate, d.inspectionDays);
-    if (!inspection || !inspection.urgent) continue;
-    const days = daysUntil(inspectionDeadline(d.contractDate, d.inspectionDays)) ?? 0;
-    needsAttention.push({ id: d.id, address: d.address, label: inspection.label, days });
+    if (d.status === "UNDER_CONTRACT") {
+      const inspection = inspectionStatusLabel(d.contractDate, d.inspectionDays);
+      if (inspection?.urgent) {
+        const days = daysUntil(inspectionDeadline(d.contractDate, d.inspectionDays)) ?? 0;
+        needsAttention.push({ key: `${d.id}-inspection`, id: d.id, address: d.address, label: inspection.label, days });
+      }
+    }
+    if (d.status !== "CLOSED" && d.status !== "DEAD") {
+      const followUp = followUpStatusLabel(d.followUpDate);
+      if (followUp?.urgent) {
+        const days = daysUntil(d.followUpDate) ?? 0;
+        needsAttention.push({ key: `${d.id}-followup`, id: d.id, address: d.address, label: followUp.label, days });
+      }
+    }
   }
   needsAttention.sort((a, b) => a.days - b.days);
 
@@ -104,12 +114,12 @@ export default async function DashboardPage({
       {needsAttention.length > 0 && (
         <div className="space-y-2 rounded-lg border border-red-900 bg-red-950/20 p-4">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-red-400">
-            Needs attention — inspection deadline
+            Needs attention
           </h2>
           <div className="space-y-1.5">
             {needsAttention.map((item) => (
               <Link
-                key={item.id}
+                key={item.key}
                 href={`/deals/${item.id}`}
                 className="flex items-center justify-between gap-4 text-sm text-neutral-200 hover:text-white"
               >

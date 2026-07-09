@@ -9,6 +9,7 @@ import {
   daysUntil,
   dealsToCsv,
   estimatedCapRate,
+  followUpStatusLabel,
   formatCurrency,
   formatPercent,
   formatTargetStates,
@@ -224,6 +225,35 @@ describe("inspectionDeadline / daysUntil / inspectionStatusLabel", () => {
 
   it("returns null when there is no deadline to report", () => {
     expect(inspectionStatusLabel(null, null)).toBeNull();
+  });
+});
+
+describe("followUpStatusLabel", () => {
+  const now = new Date(2026, 0, 15); // Jan 15, 2026
+
+  it("returns null when there's no follow-up date set", () => {
+    expect(followUpStatusLabel(null, now)).toBeNull();
+    expect(followUpStatusLabel(undefined, now)).toBeNull();
+  });
+
+  it("flags an overdue follow-up as urgent", () => {
+    const result = followUpStatusLabel(new Date(2026, 0, 10), now); // 5 days ago
+    expect(result).toEqual({ label: "Follow-up overdue by 5d", urgent: true });
+  });
+
+  it("flags a follow-up due today as urgent", () => {
+    const result = followUpStatusLabel(new Date(2026, 0, 15), now);
+    expect(result).toEqual({ label: "Follow-up due today", urgent: true });
+  });
+
+  it("flags a follow-up due within 3 days as urgent", () => {
+    const result = followUpStatusLabel(new Date(2026, 0, 17), now); // 2 days out
+    expect(result).toEqual({ label: "Follow-up in 2d", urgent: true });
+  });
+
+  it("does not flag a follow-up more than 3 days out as urgent", () => {
+    const result = followUpStatusLabel(new Date(2026, 0, 25), now); // 10 days out
+    expect(result).toEqual({ label: "Follow-up in 10d", urgent: false });
   });
 });
 

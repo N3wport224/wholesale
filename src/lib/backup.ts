@@ -33,6 +33,8 @@ export type BackupDeal = {
   assignmentFee: number | null;
   closingDate: string | null;
   notes: string | null;
+  followUpDate: string | null;
+  followUpNote: string | null;
   buyerId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +95,15 @@ function isValidDateString(v: unknown): v is string {
 function isValidDateStringOrNull(v: unknown): v is string | null {
   return v === null || isValidDateString(v);
 }
+// Backups exported before a field existed simply won't have that key —
+// treat a missing key the same as an explicit null so old backups keep
+// restoring instead of failing validation on fields they predate.
+function isValidDateStringOrNullish(v: unknown): v is string | null | undefined {
+  return v === undefined || isValidDateStringOrNull(v);
+}
+function isStringOrNullish(v: unknown): v is string | null | undefined {
+  return v === undefined || isStringOrNull(v);
+}
 
 function validateBuyer(raw: unknown, index: number): { error: string } | { value: BackupBuyer } {
   if (typeof raw !== "object" || raw === null) return { error: `buyers[${index}] is not an object.` };
@@ -145,6 +156,12 @@ function validateDeal(raw: unknown, index: number): { error: string } | { value:
   if (!isStringOrNull(d.notes) || !isStringOrNull(d.buyerId)) {
     return { error: `deals[${index}] has an invalid text field.` };
   }
+  if (!isValidDateStringOrNullish(d.followUpDate)) {
+    return { error: `deals[${index}] has an invalid follow-up date.` };
+  }
+  if (!isStringOrNullish(d.followUpNote)) {
+    return { error: `deals[${index}] has an invalid follow-up note.` };
+  }
   if (!isValidDateString(d.createdAt) || !isValidDateString(d.updatedAt)) {
     return { error: `deals[${index}] has an invalid createdAt/updatedAt date.` };
   }
@@ -166,6 +183,8 @@ function validateDeal(raw: unknown, index: number): { error: string } | { value:
       assignmentFee: d.assignmentFee as number | null,
       closingDate: d.closingDate as string | null,
       notes: d.notes as string | null,
+      followUpDate: (d.followUpDate as string | null | undefined) ?? null,
+      followUpNote: (d.followUpNote as string | null | undefined) ?? null,
       buyerId: d.buyerId as string | null,
       createdAt: d.createdAt as string,
       updatedAt: d.updatedAt as string,

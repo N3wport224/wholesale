@@ -5,6 +5,7 @@ import {
   STATUS_LABELS,
   DealStatus,
   estimatedCapRate,
+  followUpStatusLabel,
   formatCurrency,
   formatPercent,
   inspectionStatusLabel,
@@ -18,6 +19,7 @@ import { MarketingBlurbCard } from "@/components/MarketingBlurbCard";
 import { BuyerOutreachChecklist } from "@/components/BuyerOutreachChecklist";
 import { ClosingForm } from "@/components/ClosingForm";
 import { ActivityTimeline } from "@/components/ActivityTimeline";
+import { FollowUpForm } from "@/components/FollowUpForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 
@@ -53,6 +55,7 @@ export default async function DealDetailPage({
   const inspection =
     deal.status === "UNDER_CONTRACT" ? inspectionStatusLabel(deal.contractDate, deal.inspectionDays) : null;
   const capRate = estimatedCapRate(deal.purchasePrice, deal.assignmentFee, deal.rentComp);
+  const followUp = deal.status !== "CLOSED" ? followUpStatusLabel(deal.followUpDate) : null;
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -81,6 +84,15 @@ export default async function DealDetailPage({
                 }`}
               >
                 {inspection.label}
+              </span>
+            )}
+            {followUp && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  followUp.urgent ? "bg-red-500/15 text-red-400" : "bg-blue-500/15 text-blue-400"
+                }`}
+              >
+                {followUp.label}
               </span>
             )}
           </div>
@@ -134,6 +146,21 @@ export default async function DealDetailPage({
           value={formatPercent(capRate)}
         />
       </div>
+
+      {deal.status !== "CLOSED" && (
+        <Section title="Follow-up reminder">
+          <p className="text-sm text-neutral-400">
+            Set a date to remind yourself to check back on this deal — shows up on the dashboard
+            under Needs Attention.
+          </p>
+          <FollowUpForm
+            key={`${toInputDate(deal.followUpDate)}-${deal.followUpNote ?? ""}`}
+            dealId={deal.id}
+            followUpDate={toInputDate(deal.followUpDate)}
+            followUpNote={deal.followUpNote ?? ""}
+          />
+        </Section>
+      )}
 
       <Section title="Step 3 — Lock it under contract">
         <p className="text-sm text-neutral-400">

@@ -140,6 +140,16 @@ export function inspectionStatusLabel(
   return { label: `Inspection ends in ${days}d`, urgent: false };
 }
 
+export function followUpStatusLabel(followUpDate: Date | null | undefined, now: Date = new Date()) {
+  if (!followUpDate) return null;
+  const days = daysUntil(followUpDate, now);
+  if (days === null) return null;
+  if (days < 0) return { label: `Follow-up overdue by ${Math.abs(days)}d`, urgent: true };
+  if (days === 0) return { label: "Follow-up due today", urgent: true };
+  if (days <= 3) return { label: `Follow-up in ${days}d`, urgent: true };
+  return { label: `Follow-up in ${days}d`, urgent: false };
+}
+
 const CSV_HEADERS = [
   "Address",
   "City",
