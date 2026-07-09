@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// status values: SOURCED, UNDER_CONTRACT, MARKETING, CLOSED, DEAD
+model Deal {
+  id             String    @id @default(cuid())
+  address        String
+  city           String
+  state          String
+  zip            String
+  sourceSite     String    @default("Other")
+  purchasePrice  Float
+  estimatedValue Float
+  rentComp       Float?
+  status         String    @default("SOURCED")
+  earnestMoney   Float?
+  inspectionDays Int?
+  contractDate   DateTime?
+  assignmentFee  Float?
+  closingDate    DateTime?
+  notes          String?
+  followUpDate   DateTime?
+  followUpNote   String?
+  buyerId        String?
+  buyer          Buyer?    @relation(fields: [buyerId], references: [id])
+  activities     DealActivity[]
+  outreach       DealBuyerOutreach[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Buyer {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  notes        String?
+  minPrice     Float?
+  maxPrice     Float?
+  // comma-separated 2-letter state codes, e.g. "TX,OK" — empty/null means any state
+  targetStates String?
+  createdAt    DateTime @default(now())
+  deals        Deal[]
+  outreach     DealBuyerOutreach[]
+}
+
+// Tracks which buyers a deal was marketed/sent to, separate from the final assignment.
+model DealBuyerOutreach {
+  id      String   @id @default(cuid())
+  dealId  String
+  deal    Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  buyerId String
+  buyer   Buyer    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  sentAt  DateTime @default(now())
+
+  @@unique([dealId, buyerId])
+  @@index([dealId])
+  @@index([buyerId])
+}
+
+// type values: CREATED, UPDATED, STATUS_CHANGE, CONTRACT, BUYER_ASSIGNED, CLOSED
+model DealActivity {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+}
