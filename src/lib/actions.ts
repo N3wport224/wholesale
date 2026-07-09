@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
-import { SOURCE_SITES } from "@/lib/deal-logic";
+import {
+  SOURCE_SITES,
+  parseOptionalDate,
+  parseOptionalInteger,
+  parseOptionalNumber,
+} from "@/lib/deal-logic";
 import { parseCsv } from "@/lib/csv";
 
 export type ActionState = { error?: string };
@@ -21,20 +26,6 @@ function num(formData: FormData, key: string): number | null {
   if (v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-}
-
-function int(formData: FormData, key: string): number | null {
-  const v = str(formData, key);
-  if (v === "") return null;
-  const n = Number(v);
-  return Number.isInteger(n) ? n : null;
-}
-
-function date(formData: FormData, key: string): Date | null {
-  const v = str(formData, key);
-  if (v === "") return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 type DealRecordResult =
@@ -164,16 +155,23 @@ export async function updateContractTerms(
   if (!deal) return { error: "Deal not found." };
   if (deal.status === "CLOSED") return { error: "This deal is already closed." };
 
-  const earnestMoney = num(formData, "earnestMoney");
-  const inspectionDays = int(formData, "inspectionDays");
-  const contractDate = date(formData, "contractDate");
-
+  const earnestMoneyField = parseOptionalNumber(str(formData, "earnestMoney"), "Earnest money");
+  if ("error" in earnestMoneyField) return { error: earnestMoneyField.error };
+  const earnestMoney = earnestMoneyField.value;
   if (earnestMoney !== null && earnestMoney < 0) {
     return { error: "Earnest money can't be negative." };
   }
+
+  const inspectionDaysField = parseOptionalInteger(str(formData, "inspectionDays"), "Inspection period");
+  if ("error" in inspectionDaysField) return { error: inspectionDaysField.error };
+  const inspectionDays = inspectionDaysField.value;
   if (inspectionDays !== null && (inspectionDays < 1 || inspectionDays > 120)) {
     return { error: "Inspection period should be between 1 and 120 days." };
   }
+
+  const contractDateField = parseOptionalDate(str(formData, "contractDate"), "Contract date");
+  if ("error" in contractDateField) return { error: contractDateField.error };
+  const contractDate = contractDateField.value;
 
   const wasDead = deal.status === "DEAD";
 
@@ -288,7 +286,9 @@ export async function closeDeal(
   if (!deal) return { error: "Deal not found." };
   if (deal.status === "CLOSED") return { error: "This deal is already closed." };
 
-  const closingDate = date(formData, "closingDate") ?? new Date();
+  const closingDateField = parseOptionalDate(str(formData, "closingDate"), "Closing date");
+  if ("error" in closingDateField) return { error: closingDateField.error };
+  const closingDate = closingDateField.value ?? new Date();
 
   await prisma.deal.update({
     where: { id: dealId },
@@ -387,6 +387,16 @@ export async function importDeals(_prevState: ImportResult, formData: FormData):
       continue;
     }
 
+    const duplicate = await findDuplicateDeal(
+      validated.data.address,
+      validated.data.city,
+      validated.data.state
+    );
+    if (duplicate) {
+      skipped.push({ row: rowNum, reason: "Duplicate of an existing deal at this address." });
+      continue;
+    }
+
     const deal = await prisma.deal.create({ data: validated.data });
     await logActivity(deal.id, "CREATED", `Deal imported from CSV (row ${rowNum}).`);
     created++;
@@ -465,4 +475,5 @@ export async function deleteBuyer(buyerId: string) {
   await prisma.buyer.delete({ where: { id: buyerId } });
   revalidatePath("/buyers");
   revalidatePath("/");
+  redirect("/buyers");
 }

@@ -10,12 +10,12 @@ export function SiteHeader() {
 
   return (
     <header className="border-b border-neutral-800 bg-neutral-900/60 print:hidden">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />
           Wholesale Pipeline
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex flex-wrap items-center gap-1 text-sm">
           <Link
             href="/"
             className="px-3 py-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"

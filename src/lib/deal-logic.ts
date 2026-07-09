@@ -245,6 +245,33 @@ export function buyersToCsv(
   return [BUYER_CSV_HEADERS.join(","), ...rows].join("\n");
 }
 
+export type ParsedField<T> = { value: T | null } | { error: string };
+
+// Parses an optional form field, distinguishing "left blank" (a legitimate
+// null) from "present but not a valid number/date" (a validation error) —
+// the two must never be conflated into the same null, or a garbage value
+// silently overwrites a previously-saved good one with no error shown.
+export function parseOptionalNumber(raw: string, label: string): ParsedField<number> {
+  if (raw === "") return { value: null };
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return { error: `${label} must be a valid number.` };
+  return { value: n };
+}
+
+export function parseOptionalInteger(raw: string, label: string): ParsedField<number> {
+  if (raw === "") return { value: null };
+  const n = Number(raw);
+  if (!Number.isInteger(n)) return { error: `${label} must be a whole number.` };
+  return { value: n };
+}
+
+export function parseOptionalDate(raw: string, label: string): ParsedField<Date> {
+  if (raw === "") return { value: null };
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return { error: `${label} isn't a valid date.` };
+  return { value: d };
+}
+
 export function assignableOfferClause(buyerName: string) {
   const name = buyerName.trim() || "[Your Name]";
   return `Buyer: ${name} and/or Assigns`;

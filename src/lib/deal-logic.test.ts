@@ -15,6 +15,9 @@ import {
   inspectionStatusLabel,
   marketingBlurb,
   matchesCriteria,
+  parseOptionalDate,
+  parseOptionalInteger,
+  parseOptionalNumber,
   spread,
   suggestedAssignmentFee,
 } from "./deal-logic";
@@ -328,6 +331,67 @@ describe("buyersToCsv", () => {
     const csv = buyersToCsv([buyerWithoutDeals]);
     const row = parseCsv(csv)[1];
     expect(row[6]).toBe("0");
+  });
+});
+
+describe("parseOptionalNumber", () => {
+  it("treats a blank string as legitimately absent", () => {
+    expect(parseOptionalNumber("", "Earnest money")).toEqual({ value: null });
+  });
+
+  it("parses a valid number", () => {
+    expect(parseOptionalNumber("750", "Earnest money")).toEqual({ value: 750 });
+  });
+
+  it("errors — rather than silently discarding — a non-numeric value", () => {
+    expect(parseOptionalNumber("not-a-number", "Earnest money")).toEqual({
+      error: "Earnest money must be a valid number.",
+    });
+  });
+
+  it("errors on Infinity, which is not a usable value even though it parses", () => {
+    expect(parseOptionalNumber("Infinity", "Earnest money")).toEqual({
+      error: "Earnest money must be a valid number.",
+    });
+  });
+});
+
+describe("parseOptionalInteger", () => {
+  it("treats a blank string as legitimately absent", () => {
+    expect(parseOptionalInteger("", "Inspection period")).toEqual({ value: null });
+  });
+
+  it("parses a whole number", () => {
+    expect(parseOptionalInteger("21", "Inspection period")).toEqual({ value: 21 });
+  });
+
+  it("errors on a non-integer value instead of silently discarding it", () => {
+    expect(parseOptionalInteger("21.5", "Inspection period")).toEqual({
+      error: "Inspection period must be a whole number.",
+    });
+  });
+
+  it("errors on a non-numeric value", () => {
+    expect(parseOptionalInteger("abc", "Inspection period")).toEqual({
+      error: "Inspection period must be a whole number.",
+    });
+  });
+});
+
+describe("parseOptionalDate", () => {
+  it("treats a blank string as legitimately absent", () => {
+    expect(parseOptionalDate("", "Closing date")).toEqual({ value: null });
+  });
+
+  it("parses a valid date", () => {
+    const result = parseOptionalDate("2026-01-15", "Closing date");
+    expect("value" in result && result.value).toBeInstanceOf(Date);
+  });
+
+  it("errors on an unparseable date instead of silently discarding it", () => {
+    expect(parseOptionalDate("not-a-date", "Closing date")).toEqual({
+      error: "Closing date isn't a valid date.",
+    });
   });
 });
 
