@@ -406,47 +406,78 @@ export async function importDeals(_prevState: ImportResult, formData: FormData):
   return { summary: { created, skipped } };
 }
 
-function validateBuyerFields(formData: FormData) {
-  const name = str(formData, "name");
-  if (!name) return { error: "Buyer name is required." } as const;
+type BuyerRecordResult =
+  | { error: string }
+  | {
+      data: {
+        name: string;
+        email: string | null;
+        phone: string | null;
+        notes: string | null;
+        minPrice: number | null;
+        maxPrice: number | null;
+        targetStates: string | null;
+      };
+    };
 
-  const email = str(formData, "email");
+function validateBuyerRecord(record: Record<string, string | undefined>): BuyerRecordResult {
+  const name = (record.name ?? "").trim();
+  if (!name) return { error: "Buyer name is required." };
+
+  const email = (record.email ?? "").trim();
   if (email && !/^\S+@\S+\.\S+$/.test(email)) {
-    return { error: "That email address doesn't look valid." } as const;
+    return { error: "That email address doesn't look valid." };
   }
 
-  const minPrice = num(formData, "minPrice");
-  const maxPrice = num(formData, "maxPrice");
+  const minPriceField = parseOptionalNumber((record.minPrice ?? "").trim(), "Minimum buy box price");
+  if ("error" in minPriceField) return { error: minPriceField.error };
+  const minPrice = minPriceField.value;
   if (minPrice !== null && minPrice < 0) {
-    return { error: "Minimum buy box price can't be negative." } as const;
+    return { error: "Minimum buy box price can't be negative." };
   }
+
+  const maxPriceField = parseOptionalNumber((record.maxPrice ?? "").trim(), "Maximum buy box price");
+  if ("error" in maxPriceField) return { error: maxPriceField.error };
+  const maxPrice = maxPriceField.value;
   if (maxPrice !== null && maxPrice < 0) {
-    return { error: "Maximum buy box price can't be negative." } as const;
+    return { error: "Maximum buy box price can't be negative." };
   }
   if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
-    return { error: "Minimum buy box price can't be greater than the maximum." } as const;
+    return { error: "Minimum buy box price can't be greater than the maximum." };
   }
 
-  const targetStatesRaw = str(formData, "targetStates");
+  const targetStatesRaw = (record.targetStates ?? "").trim();
   const states = targetStatesRaw
     .split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
   if (states.some((s) => s.length !== 2)) {
-    return { error: "Target states should be 2-letter codes separated by commas, like TX, OK." } as const;
+    return { error: "Target states should be 2-letter codes separated by commas, like TX, OK." };
   }
 
   return {
     data: {
       name,
       email: email || null,
-      phone: str(formData, "phone") || null,
-      notes: str(formData, "notes") || null,
+      phone: (record.phone ?? "").trim() || null,
+      notes: (record.notes ?? "").trim() || null,
       minPrice,
       maxPrice,
       targetStates: states.length > 0 ? states.join(",") : null,
     },
-  } as const;
+  };
+}
+
+function validateBuyerFields(formData: FormData) {
+  return validateBuyerRecord({
+    name: str(formData, "name"),
+    email: str(formData, "email"),
+    phone: str(formData, "phone"),
+    notes: str(formData, "notes"),
+    minPrice: str(formData, "minPrice"),
+    maxPrice: str(formData, "maxPrice"),
+    targetStates: str(formData, "targetStates"),
+  });
 }
 
 export async function createBuyer(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -476,4 +507,76 @@ export async function deleteBuyer(buyerId: string) {
   revalidatePath("/buyers");
   revalidatePath("/");
   redirect("/buyers");
+}
+
+const BUYER_IMPORT_COLUMN_ALIASES: Record<string, string> = {
+  name: "name",
+  email: "email",
+  phone: "phone",
+  "phone number": "phone",
+  notes: "notes",
+  minprice: "minPrice",
+  "min price": "minPrice",
+  "minimum price": "minPrice",
+  "min contract price": "minPrice",
+  maxprice: "maxPrice",
+  "max price": "maxPrice",
+  "maximum price": "maxPrice",
+  "max contract price": "maxPrice",
+  targetstates: "targetStates",
+  "target states": "targetStates",
+  states: "targetStates",
+};
+
+async function findDuplicateBuyer(name: string, email: string | null) {
+  const candidates = await prisma.buyer.findMany({ select: { id: true, name: true, email: true } });
+  const norm = (s: string) => s.trim().toLowerCase();
+  return candidates.find(
+    (b) => norm(b.name) === norm(name) || (email && b.email && norm(b.email) === norm(email))
+  );
+}
+
+export async function importBuyers(_prevState: ImportResult, formData: FormData): Promise<ImportResult> {
+  const csvText = str(formData, "csv");
+  if (!csvText) return { error: "Paste or upload some CSV data first." };
+
+  const rows = parseCsv(csvText);
+  if (rows.length < 2) return { error: "Couldn't find any data rows below the header." };
+
+  const [headerRow, ...dataRows] = rows;
+  const columns = headerRow.map((h) => BUYER_IMPORT_COLUMN_ALIASES[h.trim().toLowerCase()] ?? null);
+
+  if (!columns.includes("name")) {
+    return { error: "CSV header must include a Name column." };
+  }
+
+  const skipped: { row: number; reason: string }[] = [];
+  let created = 0;
+
+  for (let i = 0; i < dataRows.length; i++) {
+    const rowNum = i + 2;
+    const values = dataRows[i];
+    const record: Record<string, string> = {};
+    columns.forEach((col, idx) => {
+      if (col) record[col] = values[idx] ?? "";
+    });
+
+    const validated = validateBuyerRecord(record);
+    if ("error" in validated) {
+      skipped.push({ row: rowNum, reason: validated.error });
+      continue;
+    }
+
+    const duplicate = await findDuplicateBuyer(validated.data.name, validated.data.email);
+    if (duplicate) {
+      skipped.push({ row: rowNum, reason: "Duplicate of an existing buyer (same name or email)." });
+      continue;
+    }
+
+    await prisma.buyer.create({ data: validated.data });
+    created++;
+  }
+
+  revalidatePath("/buyers");
+  return { summary: { created, skipped } };
 }

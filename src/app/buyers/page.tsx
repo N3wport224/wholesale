@@ -24,14 +24,22 @@ export default async function BuyersPage() {
             Facebook groups, BiggerPockets Marketplace, and local Meetup.com networks.
           </p>
         </div>
-        {buyers.length > 0 && (
-          <a
-            href={exportHref}
-            className="shrink-0 rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+        <div className="flex shrink-0 gap-2">
+          <Link
+            href="/buyers/import"
+            className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
           >
-            Export CSV
-          </a>
-        )}
+            Import CSV
+          </Link>
+          {buyers.length > 0 && (
+            <a
+              href={exportHref}
+              className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+            >
+              Export CSV
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-5">

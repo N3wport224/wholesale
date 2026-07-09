@@ -272,6 +272,122 @@ export function parseOptionalDate(raw: string, label: string): ParsedField<Date>
   return { value: d };
 }
 
+export type PipelineAnalytics = {
+  totalDeals: number;
+  byStatus: Record<DealStatus, number>;
+  everReachedContract: number;
+  everReachedMarketing: number;
+  closedCount: number;
+  deadCount: number;
+  conversionRates: {
+    sourcedToContract: number | null;
+    contractToMarketing: number | null;
+    marketingToClosed: number | null;
+    overallSourcedToClosed: number | null;
+  };
+  avgDaysSourcedToContract: number | null;
+  avgDaysContractToClosed: number | null;
+  avgDaysSourcedToClosed: number | null;
+  avgSpread: number | null;
+  avgAssignmentFee: number | null;
+  totalFeesCollected: number;
+  winRate: number | null;
+  dealsByMonth: { month: string; count: number }[];
+};
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+function daysBetween(start: Date, end: Date): number {
+  return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+}
+
+export function computePipelineAnalytics(
+  deals: Array<{
+    status: string;
+    createdAt: Date;
+    contractDate: Date | null;
+    closingDate: Date | null;
+    purchasePrice: number;
+    estimatedValue: number;
+    assignmentFee: number | null;
+  }>,
+  now: Date = new Date()
+): PipelineAnalytics {
+  const byStatus = Object.fromEntries(DEAL_STATUSES.map((s) => [s, 0])) as Record<DealStatus, number>;
+  for (const d of deals) {
+    const status = d.status as DealStatus;
+    if (status in byStatus) byStatus[status]++;
+  }
+
+  const everReachedContract = deals.filter((d) => d.contractDate !== null).length;
+  const everReachedMarketing = deals.filter((d) => d.assignmentFee !== null).length;
+  const closedCount = byStatus.CLOSED;
+  const deadCount = byStatus.DEAD;
+
+  const rate = (numerator: number, denominator: number) => (denominator === 0 ? null : numerator / denominator);
+
+  const conversionRates = {
+    sourcedToContract: rate(everReachedContract, deals.length),
+    contractToMarketing: rate(everReachedMarketing, everReachedContract),
+    marketingToClosed: rate(closedCount, everReachedMarketing),
+    overallSourcedToClosed: rate(closedCount, deals.length),
+  };
+
+  const daysSourcedToContract = deals
+    .filter((d) => d.contractDate !== null)
+    .map((d) => daysBetween(d.createdAt, d.contractDate as Date));
+  const daysContractToClosed = deals
+    .filter((d) => d.contractDate !== null && d.closingDate !== null)
+    .map((d) => daysBetween(d.contractDate as Date, d.closingDate as Date));
+  const daysSourcedToClosed = deals
+    .filter((d) => d.closingDate !== null)
+    .map((d) => daysBetween(d.createdAt, d.closingDate as Date));
+
+  const activeDeals = deals.filter((d) => d.status !== "DEAD");
+  const avgSpread = average(activeDeals.map((d) => spread(d.purchasePrice, d.estimatedValue)));
+
+  const closedDeals = deals.filter((d) => d.status === "CLOSED");
+  const avgAssignmentFee = average(
+    closedDeals.filter((d) => d.assignmentFee !== null).map((d) => d.assignmentFee as number)
+  );
+  const totalFeesCollected = closedDeals.reduce((sum, d) => sum + (d.assignmentFee ?? 0), 0);
+
+  const winRate = rate(closedCount, closedCount + deadCount);
+
+  const dealsByMonth: { month: string; count: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = monthDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const count = deals.filter(
+      (d) =>
+        d.createdAt.getFullYear() === monthDate.getFullYear() &&
+        d.createdAt.getMonth() === monthDate.getMonth()
+    ).length;
+    dealsByMonth.push({ month: label, count });
+  }
+
+  return {
+    totalDeals: deals.length,
+    byStatus,
+    everReachedContract,
+    everReachedMarketing,
+    closedCount,
+    deadCount,
+    conversionRates,
+    avgDaysSourcedToContract: average(daysSourcedToContract),
+    avgDaysContractToClosed: average(daysContractToClosed),
+    avgDaysSourcedToClosed: average(daysSourcedToClosed),
+    avgSpread,
+    avgAssignmentFee,
+    totalFeesCollected,
+    winRate,
+    dealsByMonth,
+  };
+}
+
 export function assignableOfferClause(buyerName: string) {
   const name = buyerName.trim() || "[Your Name]";
   return `Buyer: ${name} and/or Assigns`;

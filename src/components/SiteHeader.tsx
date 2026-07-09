@@ -29,6 +29,12 @@ export function SiteHeader() {
             Cash Buyers
           </Link>
           <Link
+            href="/analytics"
+            className="px-3 py-1.5 rounded-md text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+          >
+            Analytics
+          </Link>
+          <Link
             href="/deals/new"
             className="ml-2 px-3 py-1.5 rounded-md bg-emerald-500 text-neutral-950 font-medium hover:bg-emerald-400 transition-colors"
           >

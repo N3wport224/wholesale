@@ -5,6 +5,7 @@ import {
   assignedContractPrice,
   buyerMatchesDeal,
   buyersToCsv,
+  computePipelineAnalytics,
   daysUntil,
   dealsToCsv,
   estimatedCapRate,
@@ -436,5 +437,114 @@ describe("marketingBlurb", () => {
   it("includes the address in the headline", () => {
     const blurb = marketingBlurb({ ...deal, assignmentFee: 5000 });
     expect(blurb).toContain("412 Birchwood Ave, Tulsa, OK 74106");
+  });
+});
+
+describe("computePipelineAnalytics", () => {
+  const now = new Date("2026-01-25T00:00:00Z");
+  const base = { purchasePrice: 5000, estimatedValue: 80000 };
+
+  const deals = [
+    {
+      ...base,
+      status: "SOURCED",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      contractDate: null,
+      closingDate: null,
+      assignmentFee: null,
+    },
+    {
+      ...base,
+      status: "UNDER_CONTRACT",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      contractDate: new Date("2026-01-11T00:00:00Z"),
+      closingDate: null,
+      assignmentFee: null,
+    },
+    {
+      ...base,
+      status: "MARKETING",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      contractDate: new Date("2026-01-11T00:00:00Z"),
+      closingDate: null,
+      assignmentFee: 10000,
+    },
+    {
+      ...base,
+      status: "CLOSED",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      contractDate: new Date("2026-01-11T00:00:00Z"),
+      closingDate: new Date("2026-01-21T00:00:00Z"),
+      assignmentFee: 20000,
+    },
+    {
+      ...base,
+      status: "DEAD",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      contractDate: null,
+      closingDate: null,
+      assignmentFee: null,
+    },
+  ];
+
+  it("counts deals by status", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.totalDeals).toBe(5);
+    expect(result.byStatus).toEqual({
+      SOURCED: 1,
+      UNDER_CONTRACT: 1,
+      MARKETING: 1,
+      CLOSED: 1,
+      DEAD: 1,
+    });
+  });
+
+  it("computes funnel counts from contractDate/assignmentFee/status proxies", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.everReachedContract).toBe(3);
+    expect(result.everReachedMarketing).toBe(2);
+    expect(result.closedCount).toBe(1);
+    expect(result.deadCount).toBe(1);
+  });
+
+  it("computes conversion rates between funnel stages", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.conversionRates.sourcedToContract).toBeCloseTo(3 / 5);
+    expect(result.conversionRates.contractToMarketing).toBeCloseTo(2 / 3);
+    expect(result.conversionRates.marketingToClosed).toBeCloseTo(1 / 2);
+    expect(result.conversionRates.overallSourcedToClosed).toBeCloseTo(1 / 5);
+  });
+
+  it("computes average days between pipeline stages", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.avgDaysSourcedToContract).toBeCloseTo(10);
+    expect(result.avgDaysContractToClosed).toBeCloseTo(10);
+    expect(result.avgDaysSourcedToClosed).toBeCloseTo(20);
+  });
+
+  it("computes spread, fee, and win-rate stats", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.avgSpread).toBeCloseTo(75000);
+    expect(result.avgAssignmentFee).toBeCloseTo(20000);
+    expect(result.totalFeesCollected).toBe(20000);
+    expect(result.winRate).toBeCloseTo(0.5);
+  });
+
+  it("buckets deals into the trailing 6 calendar months", () => {
+    const result = computePipelineAnalytics(deals, now);
+    expect(result.dealsByMonth).toHaveLength(6);
+    expect(result.dealsByMonth[5]).toEqual({ month: "Jan 2026", count: 5 });
+    expect(result.dealsByMonth[0].count).toBe(0);
+  });
+
+  it("handles an empty deal list without dividing by zero", () => {
+    const result = computePipelineAnalytics([], now);
+    expect(result.totalDeals).toBe(0);
+    expect(result.conversionRates.sourcedToContract).toBeNull();
+    expect(result.conversionRates.contractToMarketing).toBeNull();
+    expect(result.avgDaysSourcedToContract).toBeNull();
+    expect(result.avgSpread).toBeNull();
+    expect(result.winRate).toBeNull();
+    expect(result.totalFeesCollected).toBe(0);
   });
 });
